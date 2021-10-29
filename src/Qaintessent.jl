@@ -140,4 +140,12 @@ module MaxKColSubgraphQAOA
     include("qaoa/qaoa_gradients.jl")
 end
 
+module MaxCutWSQAOA
+    include("qaoa/phase_separator_gates.jl")
+    export
+        MaxCutPhaseSeparationGate,
+        Graph,
+        max_cut_phase_separation_hamiltonian
+
+    include("qaoa/qaoa_gradients.jl")
 end

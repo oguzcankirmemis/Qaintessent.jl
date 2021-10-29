@@ -4,6 +4,7 @@ using LinearAlgebra
 using Qaintessent
 using Random
 using Qaintessent.MaxKColSubgraphQAOA
+using Qaintessent.MaxCutWSQAOA
 
 graphs = [
     Graph(3, [(1,2), (2,3)]),
@@ -17,6 +18,12 @@ function properly_colored_edges(graph::Graph, coloring::Vector{Int})
     return count(coloring[a] != coloring[b] for (a, b) ∈ graph.edges)
 end
 
+function cut_size(graph::Graph, partitioning::Vector{Int})
+    length(partitioning) == graph.n || throw(ArgumentError("Length of partitioning must equal the number of vertices."))
+    all(partition -> partition ⊆ 0:1, partitioning) || throw(ArgumentError("Some vertices are in an invalid partition"))
+    return count(partitioning[a] != partitioning[b] for (a, b) ∈ graph.edges)
+end
+
 # Create a state ψ that corresponds to a given coloring
 function ψ_from_coloring(n::Int, κ::Int, colors::Vector{Int})::Vector{ComplexF64}
     (n > 0 && κ > 0) || throw(DomainError("Parameters n and κ must be positive integers."))
@@ -24,6 +31,16 @@ function ψ_from_coloring(n::Int, κ::Int, colors::Vector{Int})::Vector{ComplexF
 
     # Create ψ with |1> entries in the indices corresponding to the given colors, |0> elsewhere
     ψ = kron((color == colors[vertex] ? [0.0im, 1] : [1, 0.0im] for vertex ∈ 1:n for color ∈ 1:κ)...)
+    ψ
+end
+
+# Create a state ψ that corresponds to a given partitioning
+function ψ_from_partitioning(n::Int, partitioning::Vector{Int})::Vector{ComplexF64}
+    (n > 0) || throw(DomainError("Parameter n must be positive integers."))
+    partitioning ⊆ 0:1 || throw(ArgumentError("Parameter `partitioning` may only contain values in the range 0:1."))
+
+    # Create ψ with |1> entries corresponding to the given partitioning
+    ψ = kron((1 == partitioning[vertex] ? [0.0im, 1] : [1, 0.0im] for vertex ∈ 1:n)...)
     ψ
 end
 
@@ -232,7 +249,7 @@ end
         end
     end
 
-    @testset ExtendedTestSet "max-k-col. subgraph QAOA adjoints" begin
+    @testset ExtendedTestSet "QAOA gates adjoints" begin
         # Test that `MaxKColSubgraphPhaseSeparationGate` has the correct adjoint.
         @testset "adjoint MaxKColSubgraphPhaseSeparationGate" begin
             γs = rand(length(graphs)) * 2π
@@ -342,6 +359,48 @@ end
                 β = rand() * 10 + 0.1
                 gate = PartitionMixerGate(β, d, partition)
                 @test Qaintessent.num_wires(gate) == d
+            end
+        end
+    end
+end
+
+@testset ExtendedTestSet "maxcut QAOA Hamiltonians and gate matrices" begin
+    @testset ExtendedTestSet "maxcut subgraph QAOA Hamiltonians" begin
+        # Test that the phase separation Hamiltonian used in MaxCutPhaseSeparationGate
+        # implements the objective function correctly.
+        @testset "Hamiltonian MaxCutPhaseSeparationGate" begin
+            hamiltonians = max_cut_phase_separation_hamiltonian.(graphs)
+            partitionings = [rand(1:2, graph.n) for graph ∈ graphs]
+
+            for (H, graph, partitionings) ∈ zip(hamiltonians, graphs, partitionings)
+                cut_size = cut_size(graph, partitioning)
+                # ψ_partitioning should be scaled for comparison
+                scaling = 2 * length(graph.edges) - 4 * cut_size
+                ψ_partitioning = ψ_from_partitioning(graph.n, partitioning)
+                @test H * ψ_partitioning ≈ scaling * ψ_partitioning 
+            end
+        end
+    end
+
+    @testset ExtendedTestSet "maxcut gates adjoints" begin
+        # Test that `MaxCutPhaseSeparationGate` has the correct adjoint.
+        @testset "adjoint MaxKColSubgraphPhaseSeparationGate" begin
+            γs = rand(length(graphs)) * 2π
+
+            gates = MaxCutPhaseSeparationGate.(γs, graphs)
+            for i ∈ 1:length(gates)
+                @test Qaintessent.matrix(gates[i]) * Qaintessent.matrix(Base.adjoint(gates[i])) ≈ I
+            end
+        end
+    end
+
+    @testset ExtendedTestSet "maxcut WS-QAOA num wires" begin
+        # Test that `MaxCutPhaseSeparationGate` has the correct number of wires
+        @testset "num wires MaxCutPhaseSeparationGate" begin
+            γs = rand(length(graphs)) * 2π
+            gates = MaxCutPhaseSeparationGate.(ys, graphs)
+            for (gate, graph) ∈ zip(gates, graphs)
+                @test Qaintessent.num_wires(gate) == length(graph.edges)
             end
         end
     end

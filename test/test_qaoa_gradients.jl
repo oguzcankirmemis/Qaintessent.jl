@@ -3,6 +3,7 @@ using TestSetExtensions
 using LinearAlgebra
 using Qaintessent
 using Qaintessent.MaxKColSubgraphQAOA
+using Qaintessent.MaxCutWSQAOA
 
 ##==----------------------------------------------------------------------------------------------------------------------
 
@@ -89,5 +90,18 @@ end
         ngrad = ngradient(f, [θ])
         dg = Qaintessent.backward(g(θ, κ, partition), conj(Δ))
         @test isapprox(dg.β, ngrad[1], rtol=1e-5, atol=1e-5)
+    end
+end
+
+@testset ExtendedTestSet "maxcut QAOA gate gradients" begin
+    @testset "MaxCutPhaseSeparationGate gates" begin
+        Δ = randn(ComplexF64, 16, 16)
+        graph = Graph(2, [(1,2)])
+        g  = MaxCutPhaseSeparationGate
+        f(θ) = 2*real(sum(Δ .* Qaintessent.sparse_matrix(g(θ[], graph))))
+        θ = 2π*rand()
+        ngrad = ngradient(f, [θ])
+        dg = Qaintessent.backward(g(θ, κ, graph), conj(Δ))
+        @test isapprox(dg.γ, ngrad[1], rtol=1e-5, atol=1e-5)
     end
 end

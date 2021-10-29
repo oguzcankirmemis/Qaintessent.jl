@@ -28,6 +28,7 @@ end
 
 ``U_{P}(\\gamma) = e^{-i \\gamma H_{P}}``
 ``H_{P} = \\sum_{\\{u, v\\} \\in E} \\sum_{a=1}^{\\kappa} Z_{u, a} Z_{v, a}``
+``H_{P} = \\sum_{\\{u, v\\} \\in E} \\frac{1}{2} (I - Z_{u} Z_{v})``
 
 Reference:\n
     Stuart Hadfield, Zhihui Wang, Bryan O'Gorman, Eleanor G. Rieffel, Davide Venturelli and Rupak Biswas\n
@@ -75,3 +76,63 @@ Qaintessent.sparse_matrix(g::MaxKColSubgraphPhaseSeparationGate) = sparse(matrix
 
 # Number of wires (κ * n in the one-hot encoding)
 Qaintessent.num_wires(g::MaxKColSubgraphPhaseSeparationGate)::Int = g.κ * g.graph.n
+
+"""
+    Phase separation gate for MaxCut QAOA mapping.
+    Represents the objective function which counts the number of edges
+    between the two complementary partitions.
+    Implemented the for one-hot encoding.
+
+``U_{P}(\\gamma) = e^{-i \\gamma H_{P}}``
+``H_{P} = \\sum_{\\{u, v\\} \\in E} \\sum_{a=1}^{\\kappa} Z_{u, a} Z_{v, a}``
+
+Reference:\n
+    Farhi, Edward, Jeffrey Goldstone, en Sam Gutmann\n
+    “A Quantum Approximate Optimization Algorithm”\n
+    arXiv [quant-ph], 2014. arXiv. http://arxiv.org/abs/1411.4028
+"""
+
+struct MaxCutPhaseSeparationGate <: AbstractGate
+    γ::Vector{Float64} # reference type (array with 1 entry) for compatibility with Flux
+    graph::Graph # The underlying graph which should be cut
+
+    function MaxCutPhaseSeparationGate(γ::Float64, graph::Graph)
+        length(graph.edges) > 0 || throw(ArgumentError("Graph `graph` must have at least one edge."))
+        new([γ], graph)
+    end
+end
+
+@memoize function max_cut_phase_separation_hamiltonian(graph::Graph)
+    Z = [1 0; 0 -1]
+    
+    # Implementation of Eq. (11)
+    # one-hot encoding: m (number of edges) dimensional vector. Index i corresponds to edge i.
+    H_P_enc = sum(
+        (0.5 .* (I(2 ^ length(graph.edges))
+         - kron((vertex ∈ edge ? Z : I(2) for vertex ∈ 1:graph.n)...))) # ½(I - Z_{u} Z_{v})
+        for edge ∈ graph.edges # Σ_{(u,v) = edge ∈ E}
+    )
+
+    # The hamiltonian is guaranteed to be diagonal due to its construction
+    Diagonal(H_P_enc)
+end
+
+function Qaintessent.matrix(g::MaxCutPhaseSeparationGate)
+    # Calculate the hamiltonian (Eq. 11)
+    H_P_enc = max_cut_phase_separation_hamiltonian(g.graph)
+
+    # Implementation of one-hot phase seperator, Eq. (2)
+    U_P = exp(-im * g.γ[] * H_P_enc)
+
+    U_P
+end
+
+Qaintessent.adjoint(g::MaxCutPhaseSeparationGate) = MaxCutPhaseSeparationGate(-g.γ[], g.graph)
+
+Qaintessent.sparse_matrix(g::MaxCutPhaseSeparationGate) = sparse(matrix(g))
+
+# Number of wires (m - number of edges - in the one-hot encoding)
+Qaintessent.num_wires(g::MaxCutPhaseSeparationGate)::Int = length(g.graph.edges)
+
+
+
