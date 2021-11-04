@@ -380,6 +380,20 @@ end
                 @test H * ψ_partitioning ≈ scaling * ψ_partitioning 
             end
         end
+
+        # Test that WS-QAOA Mixer correctly maps QAOA MaxCut 
+        # Mixer(X Operator) at regularization 0.5 with the initial state |0>
+        @testset "Hamiltonian WSQAOAMixerGate" begin
+            X = [0, 1; 1, 0]
+            ε = 0.5
+            init_state_randomized = false
+            for graph ∈ graphs
+                partitioning = zeros(graph.n)
+                gate = WSQAOAMixerGate(0., partitioning, ε, init_state_randomized)
+                H = wsqaoa_mixer_hamiltonian(gate)
+                @test H ≈ -kron((j == i ? X : I(2) for j ∈ 1:graph.n for i ∈ 1:graph.n)...)
+            end
+        end
     end
 
     @testset ExtendedTestSet "maxcut gates adjoints" begin
@@ -392,6 +406,19 @@ end
                 @test Qaintessent.matrix(gates[i]) * Qaintessent.matrix(Base.adjoint(gates[i])) ≈ I
             end
         end
+
+        # Test that WSQAOAMixerGate has the correct adjoint
+        @testset "adjoint WSQAOAMixerGate" begin
+            γs = rand(length(graphs)) * 2π
+            partitionings = zeros(length(graphs))
+            ε = 0
+            init_state_randomized = false
+
+            gates = WSQAOAMixerGate(γs, partitionings, ε, init_state_randomized)
+            for i ∈ 1:length(gates)
+                @test Qaintessent.matrix(gates[i]) * Qaintessent.matrix(Base.adjoint(gates[i])) ≈ I
+            end
+        end
     end
 
     @testset ExtendedTestSet "maxcut WS-QAOA num wires" begin
@@ -400,7 +427,20 @@ end
             γs = rand(length(graphs)) * 2π
             gates = MaxCutPhaseSeparationGate.(ys, graphs)
             for (gate, graph) ∈ zip(gates, graphs)
-                @test Qaintessent.num_wires(gate) == length(graph.edges)
+                @test Qaintessent.num_wires(gate) == length(graph.n)
+            end
+        end
+
+        # Test that `WSQAOAMixerGate` has the correct number of wires
+        @testset "num wires MaxCutPhaseSeparationGate" begin
+            γs = rand(length(graphs)) * 2π
+            partitionings = zeros(length(graphs))
+            ε = 0
+            init_state_randomized = false
+
+            gates = WSQAOAMixerGate.(ys, partitionings, ε, init_state_randomized)
+            for (gate, graph) ∈ zip(gates, graphs)
+                @test Qaintessent.num_wires(gate) == length(graph.n)
             end
         end
     end

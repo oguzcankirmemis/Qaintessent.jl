@@ -93,15 +93,26 @@ end
     end
 end
 
-@testset ExtendedTestSet "maxcut QAOA gate gradients" begin
+@testset ExtendedTestSet "maxcut WS-QAOA gate gradients" begin
     @testset "MaxCutPhaseSeparationGate gates" begin
         Δ = randn(ComplexF64, 16, 16)
-        graph = Graph(2, [(1,2)])
+        graph = Graph(4, [(1, 2), (2, 3), (2, 4), (3, 4)])
         g  = MaxCutPhaseSeparationGate
         f(θ) = 2*real(sum(Δ .* Qaintessent.sparse_matrix(g(θ[], graph))))
         θ = 2π*rand()
         ngrad = ngradient(f, [θ])
-        dg = Qaintessent.backward(g(θ, κ, graph), conj(Δ))
+        dg = Qaintessent.backward(g(θ, graph), conj(Δ))
         @test isapprox(dg.γ, ngrad[1], rtol=1e-5, atol=1e-5)
+    end
+
+    @testset "WSQAOAMixerGate gates" begin
+        Δ = randn(ComplexF64, 16, 16)
+        c_opt = [0, 0, 1, 1]
+        g = PartitionMixerGate
+        f(θ) = 2*real(sum(Δ .* Qaintessent.sparse_matrix(g(θ[], c_opt, 0.0, false))))
+        θ = 2π*rand()
+        ngrad = ngradient(f, [θ])
+        dg = Qaintessent.backward(g(θ, c_opt, 0.0, false), conj(Δ))
+        @test isapprox(dg.β, ngrad[1], rtol=1e-5, atol=1e-5)
     end
 end

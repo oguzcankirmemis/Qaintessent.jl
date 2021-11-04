@@ -12,8 +12,6 @@ function Qaintessent.backward(g::RNearbyValuesMixerGate, Δ::AbstractMatrix)
     return RNearbyValuesMixerGate(2 * sum(real(U_deriv .* Δ)), g.r, g.d)
 end
 
-
-
 function Qaintessent.backward(g::ParityRingMixerGate, Δ::AbstractMatrix)
     delta = 1e-10
 
@@ -36,7 +34,6 @@ function Qaintessent.backward(g::PartitionMixerGate, Δ::AbstractMatrix)
     return PartitionMixerGate(2 * sum(real(U_deriv .* Δ)), g.d, g.partition)
 end
 
-
 function Qaintessent.backward(g::MaxKColSubgraphPhaseSeparationGate, Δ::AbstractMatrix)
     H_P_enc = max_k_col_subgraph_phase_separation_hamiltonian(g.graph, g.κ)
 
@@ -55,4 +52,16 @@ function Qaintessent.backward(g::MaxCutPhaseSeparationGate, Δ::AbstractMatrix)
     U_deriv = im * H_P_enc * exp(im * g.y[] * H_P_enc)
 
     return MaxCutPhaseSeparationGate(2 * sum(real(U_deriv .* Δ)), g.graph)
+end
+
+function Qaintessent.backward(g::WSQAOAMixerGate, Δ::AbstractMatrix)
+    # simple gradient approximation
+    delta = 1e-10
+  
+    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] - delta/2), g.c_opt, g.ε, g.rounding))
+    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] + delta/2), g.c_opt, g.ε, g.rounding))
+
+    U_deriv = (U_rnv2 - U_rnv1) / delta
+  
+    return RNearbyValuesMixerGate(2 * sum(real(U_deriv .* Δ)), g.r, g.d)
 end

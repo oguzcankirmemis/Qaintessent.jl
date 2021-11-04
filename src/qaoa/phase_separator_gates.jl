@@ -81,7 +81,6 @@ Qaintessent.num_wires(g::MaxKColSubgraphPhaseSeparationGate)::Int = g.κ * g.gra
     Phase separation gate for MaxCut QAOA mapping.
     Represents the objective function which counts the number of edges
     between the two complementary partitions.
-    Implemented the for one-hot encoding.
 
 ``U_{P}(\\gamma) = e^{-i \\gamma H_{P}}``
 ``H_{P} = \\sum_{\\{u, v\\} \\in E} \\sum_{a=1}^{\\kappa} Z_{u, a} Z_{v, a}``
@@ -131,8 +130,8 @@ Qaintessent.adjoint(g::MaxCutPhaseSeparationGate) = MaxCutPhaseSeparationGate(-g
 
 Qaintessent.sparse_matrix(g::MaxCutPhaseSeparationGate) = sparse(matrix(g))
 
-# Number of wires (m - number of edges - in the one-hot encoding)
-Qaintessent.num_wires(g::MaxCutPhaseSeparationGate)::Int = length(g.graph.edges)
+# Number of wires (n - number of nodes)
+Qaintessent.num_wires(g::MaxCutPhaseSeparationGate)::Int = length(g.graph.n)
 
 
 

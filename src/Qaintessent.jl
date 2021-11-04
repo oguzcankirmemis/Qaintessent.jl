@@ -146,6 +146,11 @@ module MaxCutWSQAOA
         MaxCutPhaseSeparationGate,
         Graph,
         max_cut_phase_separation_hamiltonian
+    
+    include("qaoa/mixer_gates.jl")
+    export
+        WSQAOAMixerGate,
+        wsqaoa_mixer_hamiltonian
 
     include("qaoa/qaoa_gradients.jl")
 end
