@@ -1,24 +1,8 @@
 using Qaintessent
+using Qaintessent.QAOAHelperDataStructs
 using LinearAlgebra
 using SparseArrays: sparse
 using Memoize
-
-# Simple struct that represents a graph via its edges
-struct Graph
-    n::Int # number of vertices (indices 1,...,n)
-    edges::Set{Set{Int}} # edges, represented as sets of vertices
-
-    function Graph(n::Integer, edges::Vector{Tuple{T, T}}) where T <: Integer
-        n >= 1 || throw(DomainError("n must be a positive integer"))
-
-        # Turn into set of sets
-        edge_set = Set(Set.(edges))
-
-        # Verify that all edges are valid
-        all(edge -> edge ⊆ 1:n && length(edge) == 2, edge_set) || throw(ArgumentError("Some edges have invalid endpoints"))
-        new(n, edge_set)
-    end
-end
 
 """
     Phase separation gate for Max-κ-colorable subgraph QAOA mapping.
@@ -103,14 +87,19 @@ end
 
 @memoize function max_cut_phase_separation_hamiltonian(graph::Graph)
     Z = [1 0; 0 -1]
-    
+
     # Implementation of Eq. (11)
-    # one-hot encoding: m (number of edges) dimensional vector. Index i corresponds to edge i.
-    H_P_enc = sum(
-        (0.5 .* (I(2 ^ length(graph.edges))
-         - kron((vertex ∈ edge ? Z : I(2) for vertex ∈ 1:graph.n)...))) # ½(I - Z_{u} Z_{v})
-        for edge ∈ graph.edges # Σ_{(u,v) = edge ∈ E}
-    )
+    # m (number of edges) dimensional vector. Index i corresponds to edge i.
+    H_P_dim = 2 ^ graph.n
+    H_P_enc = zeros(ComplexF64, H_P_dim, H_P_dim)
+    for edge ∈ graph.edges  # Σ_{(u,v) = edge ∈ E}
+        Z_part = I(H_P_dim) # Z_{u} Z_{v}
+        for vertex ∈ edge
+            Z_vertex = kron((v == vertex  ? Z : I(2) for v ∈ 1:graph.n)...)
+            Z_part = Z_part * Z_vertex
+        end
+        H_P_enc += 0.5 .* (I - Z_part) # 0.5 * (I - Z_{u} * Z_{v})
+    end
 
     # The hamiltonian is guaranteed to be diagonal due to its construction
     Diagonal(H_P_enc)

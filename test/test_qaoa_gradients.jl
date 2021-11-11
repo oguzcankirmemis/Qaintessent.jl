@@ -2,6 +2,7 @@ using Test
 using TestSetExtensions
 using LinearAlgebra
 using Qaintessent
+using Qaintessent.QAOAHelperDataStructs
 using Qaintessent.MaxKColSubgraphQAOA
 using Qaintessent.MaxCutWSQAOA
 
@@ -107,8 +108,8 @@ end
 
     @testset "WSQAOAMixerGate gates" begin
         Δ = randn(ComplexF64, 16, 16)
-        c_opt = [0, 0, 1, 1]
-        g = PartitionMixerGate
+        c_opt = [0.0, 0.0, 1.0, 1.0]
+        g = WSQAOAMixerGate
         f(θ) = 2*real(sum(Δ .* Qaintessent.sparse_matrix(g(θ[], c_opt, 0.0, false))))
         θ = 2π*rand()
         ngrad = ngradient(f, [θ])

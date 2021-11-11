@@ -49,7 +49,7 @@ function Qaintessent.backward(g::MaxCutPhaseSeparationGate, Δ::AbstractMatrix)
     
     # H_P_enc is diagonal, check implementation
     # uses conjugated gradient matrix
-    U_deriv = im * H_P_enc * exp(im * g.y[] * H_P_enc)
+    U_deriv = im * H_P_enc * exp(im * g.γ[] * H_P_enc)
 
     return MaxCutPhaseSeparationGate(2 * sum(real(U_deriv .* Δ)), g.graph)
 end
@@ -58,10 +58,10 @@ function Qaintessent.backward(g::WSQAOAMixerGate, Δ::AbstractMatrix)
     # simple gradient approximation
     delta = 1e-10
   
-    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] - delta/2), g.c_opt, g.ε, g.rounding))
-    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] + delta/2), g.c_opt, g.ε, g.rounding))
+    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] - delta/2), g.c_opt, g.ε, g.init_state_randomized))
+    U_rnv2 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] + delta/2), g.c_opt, g.ε, g.init_state_randomized))
 
     U_deriv = (U_rnv2 - U_rnv1) / delta
   
-    return RNearbyValuesMixerGate(2 * sum(real(U_deriv .* Δ)), g.r, g.d)
+    return WSQAOAMixerGate(2 * sum(real(U_deriv .* Δ)), g.c_opt, g.ε, g.init_state_randomized)
 end

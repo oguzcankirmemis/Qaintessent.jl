@@ -207,15 +207,15 @@ struct WSQAOAMixerGate <: AbstractGate
     # use a reference type (array with 1 entry) for compatibility with Flux
     β::Vector{Float64}
     c_opt::Vector{Float64} # solution of the continous relaxation of the initial problem (e.g: MaxCut)
-    ε::Float # regularization parameter ∈ [0, 0.5], prevents reachability issues
+    ε::Float64 # regularization parameter ∈ [0, 0.5], prevents reachability issues
     init_state_randomized::Bool # Is the initial state going to be randomized before calculation?
                    # if yes, then off-diagonal elements of the H_{i} "would be multiplied by -1
                    # to be able to both represent solutions of the random-hyperplane 
                    # rounding as well as deviate from them" (Sec. 2.3, p.4)
 
-    function WSQAOAMixerGate(β::Float64, c_opt::Vector{Float64}, ε::Float64, rounding::Bool)
-        (ε < 0 || ε > 0.5) || throw(ArgumentError("Parameters ε be between 0 and 0.5"))
-        new([β], c_opt, ε, rounding)
+    function WSQAOAMixerGate(β::Float64, c_opt::Vector{Float64}, ε::Float64, init_state_randomized::Bool)
+        (ε >= 0  && ε <= 0.5) || throw(ArgumentError("Parameters ε be between 0 and 0.5"))
+        new([β], c_opt, ε, init_state_randomized)
     end
 end
 
@@ -232,10 +232,10 @@ end
         c_i = c_i <= g.ε ? g.ε : c_i
         c_i = c_i >= (1 - g.ε) ? (1 - g.ε) : c_i
         H_c_part_off_diagonal_val = -2 * sqrt(c_i * (1 - c_i))
-        if g.init_randomized
+        if g.init_state_randomized
             H_c_part_off_diagonal_val = -H_c_part_off_diagonal_val
         end       
-        H_c_part = [2 * c_i - 1, H_c_part_off_diagonal_val; H_c_part_off_diagonal_val, 1 - 2 * c_i]
+        H_c_part = [(2 * c_i - 1) H_c_part_off_diagonal_val; H_c_part_off_diagonal_val (1 - 2 * c_i)]
         H_i = kron((i == c_i_index ? H_c_part : I(2) for i ∈ 1:length(g.c_opt))...)
         H_wsqaoa += H_i
     end
@@ -252,8 +252,8 @@ function Qaintessent.matrix(g::WSQAOAMixerGate)
 end
 
 # Adjoint of WSQAOA mixer -> negated β parameter, reversed order in the product
-# here we take advantage of the fact that randomization 
-# 
+# here we take advantage of the fact that randomization
+# reverses the order of rotations (Sec. 2.3, p.4)
 Qaintessent.adjoint(g::WSQAOAMixerGate) = WSQAOAMixerGate(-g.β[], g.c_opt, g.ε, !g.init_state_randomized)
 
 Qaintessent.sparse_matrix(g::WSQAOAMixerGate) = sparse(matrix(g))
