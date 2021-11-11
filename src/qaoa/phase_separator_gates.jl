@@ -120,7 +120,7 @@ Qaintessent.adjoint(g::MaxCutPhaseSeparationGate) = MaxCutPhaseSeparationGate(-g
 Qaintessent.sparse_matrix(g::MaxCutPhaseSeparationGate) = sparse(matrix(g))
 
 # Number of wires (n - number of nodes)
-Qaintessent.num_wires(g::MaxCutPhaseSeparationGate)::Int = length(g.graph.n)
+Qaintessent.num_wires(g::MaxCutPhaseSeparationGate)::Int = g.graph.n
 
 
 

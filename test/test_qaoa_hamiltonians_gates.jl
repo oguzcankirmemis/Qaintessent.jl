@@ -427,12 +427,12 @@ end
             γ = 0.0
             gates = MaxCutPhaseSeparationGate.(γ, graphs)
             for (gate, graph) ∈ zip(gates, graphs)
-                @test Qaintessent.num_wires(gate) == length(graph.n)
+                @test Qaintessent.num_wires(gate) == graph.n
             end
         end
 
         # Test that `WSQAOAMixerGate` has the correct number of wires
-        @testset "num wires MaxCutPhaseSeparationGate" begin
+        @testset "num wires WSQAOAMixerGate" begin
             γ = 0.0
             partitionings = zeros.(Float64, graphs[i].n for i ∈ 1:length(graphs))
             ε = 0.0
