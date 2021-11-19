@@ -77,32 +77,39 @@ Reference:\n
 
 struct MaxCutPhaseSeparationGate <: AbstractGate
     γ::Vector{Float64} # reference type (array with 1 entry) for compatibility with Flux
-    graph::Graph # The underlying graph which should be cut
+    graph::EdgeWeightedGraph # The underlying graph which should be cut
 
     function MaxCutPhaseSeparationGate(γ::Float64, graph::Graph)
+        length(graph.edges) > 0 || throw(ArgumentError("Graph `graph` must have at least one edge."))
+        new([γ], to_edge_weighted_graph(graph))
+    end
+
+    function MaxCutPhaseSeparationGate(γ::Float64, graph::EdgeWeightedGraph)
         length(graph.edges) > 0 || throw(ArgumentError("Graph `graph` must have at least one edge."))
         new([γ], graph)
     end
 end
 
 @memoize function max_cut_phase_separation_hamiltonian(graph::Graph)
-    Z = [1 0; 0 -1]
+    return max_cut_phase_separation_hamiltonian(to_edge_weighted_graph(graph))
+end
 
+@memoize function max_cut_phase_separation_hamiltonian(graph::EdgeWeightedGraph)
     # Implementation of Eq. (11)
     # m (number of edges) dimensional vector. Index i corresponds to edge i.
     H_P_dim = 2 ^ graph.n
     H_P_enc = zeros(ComplexF64, H_P_dim, H_P_dim)
-    for edge ∈ graph.edges  # Σ_{(u,v) = edge ∈ E}
+    for (edge, w) ∈ graph.edges  # Σ_{(u,v) = edge ∈ E}
         Z_part = I(H_P_dim) # Z_{u} Z_{v}
         for vertex ∈ edge
-            Z_vertex = kron((v == vertex  ? Z : I(2) for v ∈ 1:graph.n)...)
+            Z_vertex = kron((v == vertex  ? matrix(Z) : I(2) for v ∈ 1:graph.n)...)
             Z_part = Z_part * Z_vertex
         end
-        H_P_enc += 0.5 .* (I - Z_part) # 0.5 * (I - Z_{u} * Z_{v})
+        H_P_enc += (0.5 * w) .* (I - Z_part) # 0.5 * (I - Z_{u} * Z_{v})
     end
 
     # The hamiltonian is guaranteed to be diagonal due to its construction
-    Diagonal(H_P_enc)
+    return Diagonal(H_P_enc)
 end
 
 function Qaintessent.matrix(g::MaxCutPhaseSeparationGate)
@@ -112,7 +119,7 @@ function Qaintessent.matrix(g::MaxCutPhaseSeparationGate)
     # Implementation of one-hot phase seperator, Eq. (2)
     U_P = exp(-im * g.γ[] * H_P_enc)
 
-    U_P
+    return U_P
 end
 
 Qaintessent.adjoint(g::MaxCutPhaseSeparationGate) = MaxCutPhaseSeparationGate(-g.γ[], g.graph)

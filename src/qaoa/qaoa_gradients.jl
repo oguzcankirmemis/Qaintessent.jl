@@ -58,10 +58,22 @@ function Qaintessent.backward(g::WSQAOAMixerGate, Δ::AbstractMatrix)
     # simple gradient approximation
     delta = 1e-10
   
-    U_rnv1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] - delta/2), g.c_opt, g.ε, g.init_state_randomized))
-    U_rnv2 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] + delta/2), g.c_opt, g.ε, g.init_state_randomized))
+    U_wsqaoa1 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] - delta/2), g.c_opt, g.ε, g.init_state_randomized))
+    U_wsqaoa2 = Qaintessent.matrix(WSQAOAMixerGate(-(g.β[] + delta/2), g.c_opt, g.ε, g.init_state_randomized))
 
-    U_deriv = (U_rnv2 - U_rnv1) / delta
+    U_deriv = (U_wsqaoa2 - U_wsqaoa1) / delta
   
     return WSQAOAMixerGate(2 * sum(real(U_deriv .* Δ)), g.c_opt, g.ε, g.init_state_randomized)
+end
+
+function Qaintessent.backward(g::RxMixerGate,  Δ::AbstractMatrix)
+    # simple gradient approximation
+    delta = 1e-10
+  
+    U_rx1 = Qaintessent.matrix(RxMixerGate(-(g.β[] - delta/2), g.n))
+    U_rx2 = Qaintessent.matrix(RxMixerGate(-(g.β[] + delta/2), g.n))
+
+    U_deriv = (U_rx2 - U_rx1) / delta
+  
+    return RxMixerGate(2 * sum(real(U_deriv .* Δ)), g.n)
 end

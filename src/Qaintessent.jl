@@ -127,7 +127,10 @@ export
 module QAOAHelperDataStructs
     include("qaoa/qaoa_helper_data_structs.jl")
     export
-        Graph
+        Graph,
+        EdgeWeightedGraph,
+        to_edge_weighted_graph,
+        adjacency_matrix
 end
 
 module MaxKColSubgraphQAOA
@@ -155,7 +158,9 @@ module MaxCutWSQAOA
     include("qaoa/mixer_gates.jl")
     export
         WSQAOAMixerGate,
-        wsqaoa_mixer_hamiltonian
+        wsqaoa_mixer_hamiltonian,
+        RxMixerGate,
+        rx_mixer_hamiltonian
 
     include("qaoa/qaoa_gradients.jl")
 end

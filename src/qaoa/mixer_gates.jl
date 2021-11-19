@@ -245,8 +245,24 @@ end
 
 # Compute the WSQAOA mixer gate matrix: Implementation of complete Eq. (2)
 function Qaintessent.matrix(g::WSQAOAMixerGate)
-    H_wsqaoa = wsqaoa_mixer_hamiltonian(g)
-    U_wsqaoa = exp(-im * g.β[] * H_wsqaoa)
+    U_wsqaoa = [1]
+
+    # Implements mixer gate according to Fig. (2)
+    for c_i_index in eachindex(g.c_opt)
+        # perform regularization
+        c_i = g.c_opt[c_i_index]
+        c_i = c_i <= g.ε ? g.ε : c_i
+        c_i = c_i >= (1 - g.ε) ? (1 - g.ε) : c_i
+        theta_i = 2 * asin(sqrt(c_i))
+        β = g.β[]
+        # reverse order if randomized
+        if g.init_state_randomized
+            theta_i = -theta_i
+            β = -β
+        end
+        U_i = matrix(RyGate(theta_i)) * matrix(RzGate(-2 * g.β[])) * matrix(RyGate(-theta_i))
+        U_wsqaoa = kron(U_wsqaoa, U_i)
+    end
 
     return U_wsqaoa
 end
@@ -254,9 +270,51 @@ end
 # Adjoint of WSQAOA mixer -> negated β parameter, reversed order in the product
 # here we take advantage of the fact that randomization
 # reverses the order of rotations (Sec. 2.3, p.4)
-Qaintessent.adjoint(g::WSQAOAMixerGate) = WSQAOAMixerGate(-g.β[], g.c_opt, g.ε, !g.init_state_randomized)
+Qaintessent.adjoint(g::WSQAOAMixerGate) = WSQAOAMixerGate(-g.β[], g.c_opt, g.ε, g.init_state_randomized)
 
 Qaintessent.sparse_matrix(g::WSQAOAMixerGate) = sparse(matrix(g))
 
 # Number of wires (= g.d since we use the one-hot encoding canonically)
 Qaintessent.num_wires(g::WSQAOAMixerGate)::Int = length(g.c_opt)
+
+# Classical Rx Mixer Gate typically used for MaxCut, implemented for comparison
+struct RxMixerGate <: AbstractGate
+    # use a reference type (array with 1 entry) for compatibility with Flux
+    β::Vector{Float64}
+    n::Int
+
+    function RxMixerGate(β::Float64, n::Int)
+        new([β], n)
+    end
+end
+
+@memoize function rx_mixer_hamiltonian(g::RxMixerGate)::Matrix{ComplexF64}
+    M_x = [0 1; 1 0]
+    H_dim = 2 ^ length(g.n)
+    H_rx = zeros(ComplexF64, H_dim, H_dim)
+
+    for i in 1:g.n
+        H_rx_i = kron((i == j ? M_x : I(2) for j ∈ 1:g.n)...)
+        H_rx += -H_rx_i
+    end
+
+    return H_rx
+end
+
+function Qaintessent.matrix(g::RxMixerGate)
+    U_rx = [1]
+
+    for i in 1:g.n
+        U_i = matrix(RxGate(2 * g.β[]))
+        U_rx = kron(U_rx, U_i)
+    end
+    
+    return U_rx
+end
+
+Qaintessent.adjoint(g::RxMixerGate) = RxMixerGate(-g.β[], g.n)
+
+Qaintessent.sparse_matrix(g::RxMixerGate) = sparse(matrix(g))
+
+Qaintessent.num_wires(g::RxMixerGate)::Int = g.n
+
