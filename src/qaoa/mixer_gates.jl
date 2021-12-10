@@ -3,16 +3,12 @@ using LinearAlgebra: I
 using SparseArrays: sparse
 using Memoize
 
-# Pauli X and Y matrices
-X = [0 1; 1 0]
-Y = [0 -im; im 0]
-
 # Utility function for a XY mixer
 # Implements X_a X_{a+1} + Y_a Y_{a+1}, or more generally (⊗_{i ∈ xy_indices} X_i) + (⊗_{i ∈ xy_indices} Y_i)
 function XY_sum(xy_indices::Vector{Int64}, d::Int64)::Matrix{ComplexF64}
     # passing generator into kron via varargs syntax
-    return kron((i ∈ xy_indices ? X : I(2) for i ∈ 1:d)...
-        ) + kron((i ∈ xy_indices ? Y : I(2) for i ∈ 1:d)...)
+    return kron((i ∈ xy_indices ? matrix(X) : I(2) for i ∈ 1:d)...
+        ) + kron((i ∈ xy_indices ? matrix(Y) : I(2) for i ∈ 1:d)...)
 end
 
 """
@@ -289,12 +285,10 @@ struct RxMixerGate <: AbstractGate
 end
 
 @memoize function rx_mixer_hamiltonian(g::RxMixerGate)::Matrix{ComplexF64}
-    M_x = [0 1; 1 0]
-    H_dim = 2 ^ length(g.n)
+    H_dim = 2 ^ g.n
     H_rx = zeros(ComplexF64, H_dim, H_dim)
-
     for i in 1:g.n
-        H_rx_i = kron((i == j ? M_x : I(2) for j ∈ 1:g.n)...)
+        H_rx_i = kron((i == j ? matrix(X) : I(2) for j ∈ 1:g.n)...)
         H_rx += -H_rx_i
     end
 
@@ -302,10 +296,10 @@ end
 end
 
 function Qaintessent.matrix(g::RxMixerGate)
-    U_rx = [1]
+    U_rx = [1.0]
 
     for i in 1:g.n
-        U_i = matrix(RxGate(2 * g.β[]))
+        U_i = matrix(RxGate(2.0 * g.β[]))
         U_rx = kron(U_rx, U_i)
     end
     

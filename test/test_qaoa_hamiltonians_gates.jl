@@ -5,7 +5,6 @@ using Qaintessent
 using Random
 using Qaintessent.QAOAHelperDataStructs
 using Qaintessent.MaxKColSubgraphQAOA
-using Qaintessent.MaxCutWSQAOA
 
 graphs = [
     Graph(3, [(1,2), (2,3)]),
@@ -17,12 +16,6 @@ graphs = [
 function properly_colored_edges(graph::Graph, coloring::Vector{Int})
     length(coloring) == graph.n || throw(ArgumentError("Length of coloring must equal the number of vertices."))
     return count(coloring[a] != coloring[b] for (a, b) ∈ graph.edges)
-end
-
-function cut_size(graph::Graph, partitioning::Vector{Int})
-    length(partitioning) == graph.n || throw(ArgumentError("Length of partitioning must equal the number of vertices."))
-    all(partition -> partition ⊆ 0:1, partitioning) || throw(ArgumentError("Some vertices are in an invalid partition"))
-    return count(partitioning[a] != partitioning[b] for (a, b) ∈ graph.edges)
 end
 
 # Create a state ψ that corresponds to a given coloring
@@ -360,87 +353,6 @@ end
                 β = rand() * 10 + 0.1
                 gate = PartitionMixerGate(β, d, partition)
                 @test Qaintessent.num_wires(gate) == d
-            end
-        end
-    end
-end
-
-@testset ExtendedTestSet "maxcut QAOA Hamiltonians and gate matrices" begin
-    @testset ExtendedTestSet "maxcut subgraph QAOA Hamiltonians" begin
-        # Test that the phase separation Hamiltonian used in MaxCutPhaseSeparationGate
-        # implements the objective function correctly.
-        @testset "Hamiltonian MaxCutPhaseSeparationGate" begin
-            hamiltonians = max_cut_phase_separation_hamiltonian.(graphs)
-            partitionings = [rand(0:1, graph.n) for graph ∈ graphs]
-
-            for (H, graph, partitioning) ∈ zip(hamiltonians, graphs, partitionings)
-                c_size = cut_size(graph, partitioning)
-                # ψ_partitioning should be scaled for comparison
-                ψ_partitioning = ψ_from_partitioning(graph.n, partitioning)
-                @test H * ψ_partitioning ≈ c_size * ψ_partitioning 
-            end
-        end
-
-        # Test that WS-QAOA Mixer correctly maps QAOA MaxCut 
-        # Mixer(X Operator) at regularization 0.5 with the initial state |0>
-        @testset "Hamiltonian WSQAOAMixerGate" begin
-            X = [0 1; 1 0]
-            ε = 0.5
-            init_state_randomized = false
-            for graph ∈ graphs
-                partitioning = zeros(graph.n)
-                gate = WSQAOAMixerGate(0., partitioning, ε, init_state_randomized)
-                H = wsqaoa_mixer_hamiltonian(gate)
-                @test H ≈ sum(-kron((j == i ? X : I(2) for j ∈ 1:graph.n)...) for i ∈ 1:graph.n)
-            end
-        end
-    end
-
-    @testset ExtendedTestSet "maxcut gates adjoints" begin
-        # Test that `MaxCutPhaseSeparationGate` has the correct adjoint.
-        @testset "adjoint MaxKColSubgraphPhaseSeparationGate" begin
-            γs = rand(length(graphs)) * 2π
-
-            gates = MaxCutPhaseSeparationGate.(γs, graphs)
-            for i ∈ 1:length(gates)
-                @test Qaintessent.matrix(gates[i]) * Qaintessent.matrix(Base.adjoint(gates[i])) ≈ I
-            end
-        end
-
-        # Test that WSQAOAMixerGate has the correct adjoint
-        @testset "adjoint WSQAOAMixerGate" begin
-            γ = 0.0
-            ε = 0.0
-            init_state_randomized = false
-
-            for i ∈ 1:length(graphs)
-                partitioning = zeros(Float64, graphs[i].n)
-                gate = WSQAOAMixerGate(γ, partitioning, ε, init_state_randomized)
-                @test Qaintessent.matrix(gate) * Qaintessent.matrix(Base.adjoint(gate)) ≈ I
-            end
-        end
-    end
-
-    @testset ExtendedTestSet "maxcut WS-QAOA num wires" begin
-        # Test that `MaxCutPhaseSeparationGate` has the correct number of wires
-        @testset "num wires MaxCutPhaseSeparationGate" begin
-            γ = 0.0
-            gates = MaxCutPhaseSeparationGate.(γ, graphs)
-            for (gate, graph) ∈ zip(gates, graphs)
-                @test Qaintessent.num_wires(gate) == graph.n
-            end
-        end
-
-        # Test that `WSQAOAMixerGate` has the correct number of wires
-        @testset "num wires WSQAOAMixerGate" begin
-            γ = 0.0
-            partitionings = zeros.(Float64, graphs[i].n for i ∈ 1:length(graphs))
-            ε = 0.0
-            init_state_randomized = false
-
-            gates = WSQAOAMixerGate.(γ, partitionings, ε, init_state_randomized)
-            for (gate, graph) ∈ zip(gates, graphs)
-                @test Qaintessent.num_wires(gate) == graph.n
             end
         end
     end
